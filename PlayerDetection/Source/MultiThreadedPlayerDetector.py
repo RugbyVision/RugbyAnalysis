@@ -3,6 +3,7 @@ import sys, os
 import cv2 as cv
 import numpy as np
 from PIL import Image
+import h5py
 
 # import NN-related libraries
 import torch
@@ -56,6 +57,7 @@ def ObjectDetectionAPI(img, Thr=0.3, RectTh=3, TxtSize=3, TxtTh=3):
 
 class FileVideoStream:
     def __init__(self, path, queueSize=2048):
+        self.path = path
         self.stream = cv.VideoCapture(path)
         self.halted = False
         self.Q = Queue(maxsize=queueSize)
@@ -70,37 +72,36 @@ class FileVideoStream:
     
     def update(self):
         idx = 0
-        Detected = []
-        while True:
-            if self.halted:
-                return
-            
-            if not self.Q.full():
-                (grabbed, frame) = self.stream.read()
-
-                if not grabbed:
-                    self.halt()
-                    # self.saveArray(np.array(Detected), "res/Arrays/Detected_rcnn")
-                    FullQueue.set()
+        with h5py.File(self.path.replace(".mp4", ".h5").replace("Videos", "Arrays"), 'w') as hf:
+            while True:
+                if self.halted:
                     return
-                
-                """img, coords = self.detectBall(frame, lastCoords=self.lastFrameCoords)
-                if coords is None:
-                    coords = [None, None]
-                else:
-                    self.lastFrameCoords = coords
-                    center = tuple(map(int, coords))
-                    cv.circle(img, center, 10, (0, 255, 0), 3)
-                
-                Detected.append(coords)"""
-                img = self.detectPeople(frame)
-                
-                self.Q.put(img)
+            
+                if not self.Q.full():
+                    (grabbed, frame) = self.stream.read()
 
-                print(f"read the frame {idx}")
-                idx += 1
-            else:
-                FullQueue.set()
+                    if not grabbed:
+                        self.halt()
+                        # self.saveArray(np.array(Detected), "res/Arrays/Detected_rcnn")
+                        FullQueue.set()
+                        return
+
+                    """img, coords = self.detectBall(frame, lastCoords=self.lastFrameCoords)
+                    if coords is None:
+                        coords = [None, None]
+                    else:
+                        self.lastFrameCoords = coords
+                        center = tuple(map(int, coords))
+                        cv.circle(img, center, 10, (0, 255, 0), 3)
+                    Detected.append(coords)"""
+                    img, coordArray = self.detectPeople(frame)
+                    self.Q.put(img)
+                    hf["Frame_" + str(idx) + "_People"] = coordArray
+
+                    print(f"read the frame {idx}")
+                    idx += 1
+                else:
+                    FullQueue.set()
 
     def read(self):
         return self.Q.get()
@@ -142,16 +143,18 @@ class FileVideoStream:
     
     def detectPeople(self, img, thr=0.5, rectTh=3, rectCol=(0, 255, 0), txtFont=cv.FONT_HERSHEY_SIMPLEX, txtSize=3, txtTh=3):
         boxes, pred_cls = GetPred(img, thr)
+        coords = []
 
         for i in range(len(boxes)):
             if pred_cls[i] == "person":
                 cv.rectangle(img, tuple(map(int, boxes[i][0])), tuple(map(int, boxes[i][1])), rectCol, rectTh)
                 cv.putText(img, "person", tuple(map(int, boxes[i][0])), txtFont, txtSize, rectCol, txtTh)
+                coords.append([(boxes[i][0][0] + boxes[i][1][0]) / 2., boxes[i][1][1]])
 
-        return img
+        return img, np.array(coords)
 
 
-path = os.path.join(os.path.abspath('.'), "PlayerDetection/Res/Videos/RugbyGameSample_0.mp4")
+path = os.path.join(os.path.abspath('.'), "PlayerDetection/Res/Videos/RugbyGame_0.mp4")
 if not os.path.exists(path):
     print(f"The path {path} does not exist")
     raise ValueError(path)
