@@ -16,6 +16,9 @@ from threading import Thread, Event
 from imutils.video import FPS
 import time
 
+# import ColorChecking/Team Classification
+import ColorChecking as col
+
 device = ("cuda" if torch.cuda.is_available() else "cpu")
 print(f"using {device} device")
 model = torchvision.models.detection.faster_rcnn.fasterrcnn_resnet50_fpn(weights="COCO_V1")
@@ -54,6 +57,15 @@ def ObjectDetectionAPI(img, Thr=0.3, RectTh=3, TxtSize=3, TxtTh=3):
                 coords[j] /= 2.
     
     return img, coords
+
+def detect_colors(img, boxes, ratio):
+    global thread_result
+    objects = {}
+    
+    threads = []
+    for i, (score, label, box) in enumerate(zip(scores, categories, boxes)):
+        if label.item() == 0.:
+            box = tuple(map(int, boxes[i]))
 
 class FileVideoStream:
     def __init__(self, path, queueSize=2048):
@@ -150,6 +162,9 @@ class FileVideoStream:
                 cv.rectangle(img, tuple(map(int, boxes[i][0])), tuple(map(int, boxes[i][1])), rectCol, rectTh)
                 cv.putText(img, "person", tuple(map(int, boxes[i][0])), txtFont, txtSize, rectCol, txtTh)
                 coords.append([(boxes[i][0][0] + boxes[i][1][0]) / 2., boxes[i][1][1]])
+            elif pred_cls[i] == "sports ball":
+                cv.rectangle(img, map(int, boxes[i][0]), tuple(map(int, boxes[i][1])), rectCol, rectTh)
+                cv.putText(img, "ball", tuple(map(int, boxes[i][0])), txtFont, txtSize, rectCol, txtTh)
 
         return img, np.array(coords)
 
@@ -198,6 +213,5 @@ print(f"approximate FPS: {fps.fps():.2f}")
 print(f"frames in total: {i}")
 
 out.release()
-cv.destroyAllWindows()
 
 fvs.halt()
