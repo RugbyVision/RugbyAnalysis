@@ -32,9 +32,9 @@ def detect_color(img, field_color):
     data = np.float32(data)
 
     number_clusters = 2
-    crriteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 10, 1.)
+    criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 10, 1.)
     flags = cv.KMEANS_PP_CENTERS
-    compactness, labels, centers = cv.kmeans(data, number_clusters, None, critera, 10, flags)
+    compactness, labels, centers = cv.kmeans(data, number_clusters, None, criteria, 10, flags)
     
     bars = []
     rgb_values = []
@@ -47,7 +47,7 @@ def detect_color(img, field_color):
     color = []
 
     for index, row in enumerate(rgb_values):
-        if not is_color_in_range(row, *filed_color):
+        if not is_color_in_range(row, *field_color):
             color.append(row)
     return color
 

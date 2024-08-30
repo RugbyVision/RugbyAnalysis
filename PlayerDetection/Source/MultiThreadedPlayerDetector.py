@@ -63,9 +63,16 @@ def detect_colors(img, boxes, ratio):
     objects = {}
     
     threads = []
-    for i, (score, label, box) in enumerate(zip(scores, categories, boxes)):
-        if label.item() == 0.:
-            box = tuple(map(int, boxes[i]))
+    for i, box in enumerate(boxes):
+        box = [tuple(map(int, boxes[i][0])), tuple(map(int, boxes[i][1]))]
+        x0, y0 = box[0]
+        x1, y1 = box[1]
+        cropped = img[y0:y1, x0:x1]
+        ch, cw, _ = cropped.shape
+        cropped = cv.resize(cropped, (int(cw / ratio), int(ch / ratio)))
+        threads.append(Thread(target=get_color, args=(i, cropped)))
+        objects[i] = {"object": "Person",
+                    "score": round(score.item(), 3),}
 
 class FileVideoStream:
     def __init__(self, path, queueSize=2048):
