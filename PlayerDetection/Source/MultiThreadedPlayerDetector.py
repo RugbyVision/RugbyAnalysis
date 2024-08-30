@@ -19,6 +19,27 @@ import time
 # import ColorChecking/Team Classification
 import ColorChecking as col
 
+path = os.path.join(os.path.abspath('.'), "PlayerDetection/Res/Videos/RugbyGame_0.mp4")
+if not os.path.exists(path):
+    print(f"The path {path} does not exist")
+    raise ValueError(path)
+
+firstFrame = None
+stream = cv.VideoCapture(path)
+if stream.isOpened():
+    ret, frame = stream.read()
+    if not ret:
+        raise ValueError(path)
+    else:
+        firstFrame = frame
+
+stream.release()
+
+# ------------------------------------------------
+# here put the program to specify the 4 corners
+# use "firstFrame" variable for image
+# ------------------------------------------------
+
 device = ("cuda" if torch.cuda.is_available() else "cpu")
 print(f"using {device} device")
 model = torchvision.models.detection.faster_rcnn.fasterrcnn_resnet50_fpn(weights="COCO_V1")
@@ -174,12 +195,6 @@ class FileVideoStream:
                 cv.putText(img, "ball", tuple(map(int, boxes[i][0])), txtFont, txtSize, rectCol, txtTh)
 
         return img, np.array(coords)
-
-
-path = os.path.join(os.path.abspath('.'), "PlayerDetection/Res/Videos/RugbyGame_0.mp4")
-if not os.path.exists(path):
-    print(f"The path {path} does not exist")
-    raise ValueError(path)
 
 beginning = time.time()
 fvs = FileVideoStream(path).start()
