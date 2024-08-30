@@ -159,5 +159,11 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-# Resource folder
-PlayerDetection/Res/
+# Resources
+*.jpg
+*.png
+*.bmp
+*.mp4
+*.avi
+*.mkv
+PlayerDetection/Res/Dataset/

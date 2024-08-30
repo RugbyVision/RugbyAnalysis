@@ -15,6 +15,26 @@ from threading import Thread, Event
 from imutils.video import FPS
 import time
 
+path = os.path.join(os.path.abspath('.'), "PlayerDetection/Res/Videos/RugbyGameSample_Aug_Cam_1_1.mp4")
+if not os.path.exists(path):
+    print(f"The path {path} does not exist")
+    raise ValueError(path)
+
+firstFrame = None
+stream = cv.VideoCapture(path)
+if stream.isOpened():
+    ret, frame = stream.read()
+    if not ret:
+        raise ValueError(path)
+    else:
+        firstFrame = frame
+
+stream.release()
+
+# ------------------------------------------------
+# here put the program to specify the 4 corners
+# ------------------------------------------------
+
 device = ("cuda" if torch.cuda.is_available() else "cpu")
 print(f"using {device} device")
 model = torchvision.models.detection.faster_rcnn.fasterrcnn_resnet50_fpn(weights="COCO_V1")
@@ -26,7 +46,7 @@ FullQueue.clear()
 
 COCO_CategoryNames = ['__background__', 'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light', 'fire hydrant', 'N/A', 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe', 'N/A', 'backpack', 'umbrella', 'N/A', 'N/A', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard', 'tennis racket', 'bottle', 'N/A', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple', 'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair', 'couch', 'potted plant', 'bed', 'N/A', 'dining table', 'N/A', 'N/A', 'toilet', 'N/A', 'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone', 'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'N/A', 'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush']
 
-def GetPred(Img, Thr):
+def GetPred(Img:cv.Mat, Thr:float):
     img = cv.cvtColor(Img, cv.COLOR_BGR2RGB)
     img = Image.fromarray(img)
     transform = t.Compose([t.ToTensor()])
@@ -40,7 +60,7 @@ def GetPred(Img, Thr):
     pred_class = [pred_class[i] for i in pred_t]
     return pred_boxes, pred_class
 
-def ObjectDetectionAPI(img, Thr=0.3, RectTh=3, TxtSize=3, TxtTh=3):
+def ObjectDetectionAPI(img:cv.Mat, Thr:float=0.3, RectTh:int=3, TxtSize:int=3, TxtTh:int=3):
     boxes, pred_cls = GetPred(img, Thr)
 
     coords = None
@@ -55,12 +75,13 @@ def ObjectDetectionAPI(img, Thr=0.3, RectTh=3, TxtSize=3, TxtTh=3):
     return img, coords
 
 class FileVideoStream:
-    def __init__(self, path, queueSize=2048):
+    def __init__(self, path:str, queueSize:int=2048):
+        self.filename = os.path.splitext(os.path.basename(path))[0]
         self.stream = cv.VideoCapture(path)
         self.halted = False
         self.Q = Queue(maxsize=queueSize)
         self.lastFrameCoords = None
-        self.DetectedArray = None
+        self.DetectedArray = []
 
     def start(self):
         t = Thread(target=self.update, args=())
@@ -71,6 +92,7 @@ class FileVideoStream:
     def update(self):
         idx = 0
         Detected = []
+        QueueIdx = 0
         while True:
             if self.halted:
                 return
@@ -80,7 +102,8 @@ class FileVideoStream:
 
                 if not grabbed:
                     self.halt()
-                    # self.saveArray(np.array(Detected), "res/Arrays/Detected_rcnn")
+                    ArrayName = self.filename + '_' + str(QueueIdx)
+#                   self.saveArray(np.array(Detected), "Res/Arrays/Detected_rcnn_" + ArrayName)
                     FullQueue.set()
                     return
                 
@@ -93,7 +116,11 @@ class FileVideoStream:
                     cv.circle(img, center, 10, (0, 255, 0), 3)
                 
                 Detected.append(coords)"""
-                img = self.detectPeople(frame)
+                img, coords = self.detectPeople(frame)
+                if len(coords) > 0:
+                    Detected.append([coords])
+                else:
+                    Detected.append([np.NaN])
                 
                 self.Q.put(img)
 
@@ -101,6 +128,10 @@ class FileVideoStream:
                 idx += 1
             else:
                 FullQueue.set()
+                ArrayName = self.filename + '_' + str(QueueIdx)
+#               self.saveArray(np.array(Detected), "Res/Arrays/Detected_rcnn_" + ArrayName)
+                Detected = []
+                QueueIdx += 1
 
     def read(self):
         return self.Q.get()
@@ -113,7 +144,6 @@ class FileVideoStream:
 
     def saveArray(self, arr, path):
         np.save(path, arr)
-        print(arr)
 
     def detectBall(self, img, thr=0.5, lastCoords=None):
         boxes, pred_cls = GetPred(img, thr)
@@ -140,28 +170,27 @@ class FileVideoStream:
                     coords = placement
                     dist = d
     
-    def detectPeople(self, img, thr=0.5, rectTh=3, rectCol=(0, 255, 0), txtFont=cv.FONT_HERSHEY_SIMPLEX, txtSize=3, txtTh=3):
+    def detectPeople(self, img: cv.Mat, thr: float=0.5, rectTh: int=3, rectCol: tuple=(0, 255, 0), txtFont: int=cv.FONT_HERSHEY_SIMPLEX, txtSize: int=3, txtTh: int=3):
         boxes, pred_cls = GetPred(img, thr)
+        coords = []
 
         for i in range(len(boxes)):
-            if pred_cls[i] == "person":
+            if pred_cls[i] == "person" or pred_cls[i] == "sports ball":
                 cv.rectangle(img, tuple(map(int, boxes[i][0])), tuple(map(int, boxes[i][1])), rectCol, rectTh)
-                cv.putText(img, "person", tuple(map(int, boxes[i][0])), txtFont, txtSize, rectCol, txtTh)
+                cv.putText(img, pred_cls[i], tuple(map(int, boxes[i][0])), txtFont, txtSize, rectCol, txtTh)
 
-        return img
+                if pred_cls[i] == "person":
+                    coords.append([[(boxes[i][0][0] + boxes[i][1][0]) / 2., boxes[i][1][1]]])
 
+        return img, coords
 
-path = os.path.join(os.path.abspath('.'), "PlayerDetection/Res/Videos/RugbyGameSample_0.mp4")
-if not os.path.exists(path):
-    print(f"The path {path} does not exist")
-    raise ValueError(path)
 
 beginning = time.time()
 fvs = FileVideoStream(path).start()
 FullQueue.wait()
 FullQueue.clear()
 
-out_path = os.path.join(os.path.abspath('.'), "PlayerDetection/Res/Videos/PlayerEstimate_0.mp4")
+out_path = os.path.join(os.path.abspath('.'), "PlayerDetection/Res/Videos/PlayerEstimate_Aug_Cam_1_1.mp4")
 if os.path.exists(out_path):
     print(f"The path {path} already exists")
     fvs.halt()
@@ -195,6 +224,5 @@ print(f"approximate FPS: {fps.fps():.2f}")
 print(f"frames in total: {i}")
 
 out.release()
-cv.destroyAllWindows()
 
 fvs.halt()
