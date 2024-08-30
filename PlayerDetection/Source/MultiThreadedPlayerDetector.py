@@ -79,7 +79,7 @@ def ObjectDetectionAPI(img, Thr=0.3, RectTh=3, TxtSize=3, TxtTh=3):
     
     return img, coords
 
-def detect_colors(img, boxes, ratio):
+"""def detect_colors(img, boxes, ratio):
     global thread_result
     objects = {}
     
@@ -93,7 +93,7 @@ def detect_colors(img, boxes, ratio):
         cropped = cv.resize(cropped, (int(cw / ratio), int(ch / ratio)))
         threads.append(Thread(target=get_color, args=(i, cropped)))
         objects[i] = {"object": "Person",
-                    "score": round(score.item(), 3),}
+                    "score": round(score.item(), 3),} """
 
 class FileVideoStream:
     def __init__(self, path, queueSize=2048):
