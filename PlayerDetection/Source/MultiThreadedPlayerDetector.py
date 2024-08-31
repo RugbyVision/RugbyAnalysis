@@ -19,7 +19,7 @@ import time
 # import ColorChecking/Team Classification
 import ColorChecking as col
 
-path = os.path.join(os.path.abspath('.'), "PlayerDetection/Res/Videos/RugbyGame_0.mp4")
+path = os.path.join(os.path.abspath('.'), "PlayerDetection/Res/Videos/RugbyGameSample_0.mp4")
 if not os.path.exists(path):
     print(f"The path {path} does not exist")
     raise ValueError(path)
@@ -191,7 +191,7 @@ class FileVideoStream:
                 cv.putText(img, "person", tuple(map(int, boxes[i][0])), txtFont, txtSize, rectCol, txtTh)
                 coords.append([(boxes[i][0][0] + boxes[i][1][0]) / 2., boxes[i][1][1]])
             elif pred_cls[i] == "sports ball":
-                cv.rectangle(img, map(int, boxes[i][0]), tuple(map(int, boxes[i][1])), rectCol, rectTh)
+                cv.rectangle(img, tuple(map(int, boxes[i][0])), tuple(map(int, boxes[i][1])), rectCol, rectTh)
                 cv.putText(img, "ball", tuple(map(int, boxes[i][0])), txtFont, txtSize, rectCol, txtTh)
 
         return img, np.array(coords)
