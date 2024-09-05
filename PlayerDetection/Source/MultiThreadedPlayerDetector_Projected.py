@@ -9,15 +9,16 @@ import torch
 import torchvision
 from torchvision import transforms as t
 
-import ColorChecking as cc
-
 # import libraries related to video processing
 from queue import Queue
 from threading import Thread, Event
 from imutils.video import FPS
 import time
 
-path = os.path.join(os.path.abspath('.'), "PlayerDetection/Res/Videos/RugbyGameSample_Aug_Cam_1_1.mp4")
+def is_in_quadrilateral(pt0:tuple, pt1:tuple, pt2:tuple, pt3:tuple, target:tuple)->bool:
+    edge_0 = (pt1[0] - pt0[0], pt1[1] - pt1[1])
+
+path = os.path.join(os.path.abspath('.'), "PlayerDetection/Res/Videos/RugbyGameSample_Aug_Cam_3.mp4")
 if not os.path.exists(path):
     print(f"The path {path} does not exist")
     raise ValueError(path)
@@ -33,7 +34,55 @@ if stream.isOpened():
 
 stream.release()
 
-device = ("cuda" if torch.cuda.is_available() else "cpu")
+def get_coordinates(image:cv.Mat, screen_size:tuple=(1280, 720))->np.ndarray:
+    # get mouse position
+    (width_show, height_show) = screen_size
+    height_img, width_img, _ = image.shape
+
+    coords = []
+    def mouse_position(event, x, y, flags, param):
+        if event == cv.EVENT_LBUTTONDOWN:
+            cv.circle(image_show, (x, y), 7, (0, 0, 255), 2)
+            cv.rectangle(image_show, (x - 2, y - 2), (x + 2, y + 2), (0, 0, 255), 1)
+            coords.append([x / float(width_show), y / (height_show)]) #[L-T, R-T, L-B, R-B]
+
+    # read image
+    image_show = cv.resize(image, (width_show, height_show), interpolation=cv.INTER_AREA)
+
+    # call mouse_position function
+    cv.namedWindow("photo")
+    cv.setMouseCallback("photo", mouse_position)
+
+    # show image
+    while True:
+        cv.imshow("photo", image_show)
+    
+        if cv.waitKey(20) & 0xFF == 27: #Escで画面を閉じる
+            break
+
+    cv.destroyAllWindows()
+
+    retArr = np.array(coords, dtype=np.float32)
+    sizeFactor = np.array([width_img, height_img])
+    retArr *= sizeFactor
+    return retArr
+
+paddedFrame = cv.copyMakeBorder(firstFrame, 1000, 1000, 1000, 1000, cv.BORDER_CONSTANT, value=(0, 0, 0))
+
+coords_photo = get_coordinates(paddedFrame)#  - np.array([1000., 1000.], dtype=np.float32)
+pitch = cv.imread("PlayerDetection/Res/Images/virtual_pitch.png")
+coords_pitch = np.array([[600., 100.], [1100., 100.], [600., 790.], [1100., 790.]], dtype=np.float32)
+
+_width, _height, _third = firstFrame.shape
+InvProjectionMatrix = cv.getPerspectiveTransform(coords_photo, coords_pitch)
+projected = cv.warpPerspective(paddedFrame, InvProjectionMatrix, (1201, 921))
+
+cv.imshow("projected image", projected)
+cv.waitKey(0)
+cv.destroyAllWindows()
+
+
+"""device = ("cuda" if torch.cuda.is_available() else "cpu")
 print(f"using {device} device")
 model = torchvision.models.detection.faster_rcnn.fasterrcnn_resnet50_fpn(weights="COCO_V1")
 model.to(device)
@@ -105,7 +154,7 @@ class FileVideoStream:
                     FullQueue.set()
                     return
                 
-                """img, coords = self.detectBall(frame, lastCoords=self.lastFrameCoords)
+                img, coords = self.detectBall(frame, lastCoords=self.lastFrameCoords)
                 if coords is None:
                     coords = [None, None]
                 else:
@@ -113,7 +162,7 @@ class FileVideoStream:
                     center = tuple(map(int, coords))
                     cv.circle(img, center, 10, (0, 255, 0), 3)
                 
-                Detected.append(coords)"""
+                Detected.append(coords)
                 img, coords = self.detectPeople(frame)
                 if len(coords) > 0:
                     Detected.append([coords])
@@ -223,4 +272,4 @@ print(f"frames in total: {i}")
 
 out.release()
 
-fvs.halt()
+fvs.halt()"""
