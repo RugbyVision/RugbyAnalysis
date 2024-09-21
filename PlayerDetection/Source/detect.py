@@ -99,16 +99,16 @@ def GetPred(Img:cv2.Mat, Thr:float):
 def plot_pts(objects):
     fig = plt.figure()
     ax = fig.add_subplot(projection="3d")
-    ax.set_xlabel("Saturation")
-    ax.set_ylabel("Hue")
-    ax.set_zlabel("Value")
+    ax.set_xlabel("Red")
+    ax.set_ylabel("Green")
+    ax.set_zlabel("Blue")
 
     xs, ys, zs = [], [], []
 
     for i in objects.keys():
         rgb_col = objects[i]["color"]
         hsv_col = cs.rgb_to_hsv(rgb_col[0] / 255., rgb_col[1] / 255., rgb_col[2] / 255.)
-        (y, x, z) = hsv_col
+        (x, y, z) = rgb_col
         xs.append(x)
         ys.append(y)
         zs.append(z)

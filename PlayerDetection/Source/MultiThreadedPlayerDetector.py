@@ -9,7 +9,7 @@ import torch
 import torchvision
 from torchvision import transforms as t
 
-import ColorChecking as cc
+import ColorChecking as Col
 
 # import libraries related to video processing
 from queue import Queue
@@ -175,12 +175,25 @@ class FileVideoStream:
         for i in range(len(boxes)):
             if pred_cls[i] == "person" or pred_cls[i] == "sports ball":
                 cv.rectangle(img, tuple(map(int, boxes[i][0])), tuple(map(int, boxes[i][1])), rectCol, rectTh)
+                pred_cls[i] = self.detectTeam(img, boxes[i])
                 cv.putText(img, pred_cls[i], tuple(map(int, boxes[i][0])), txtFont, txtSize, rectCol, txtTh)
 
                 if pred_cls[i] == "person":
                     coords.append([[(boxes[i][0][0] + boxes[i][1][0]) / 2., boxes[i][1][1]]])
 
         return img, coords
+
+    def detectTeam(self, image, box):
+        groups_color_filters = (0, 0, 0, 0, 0, 0)
+        box_int = [tuple(map(int, box[0])), tuple(map(int, box[1]))]
+        [(x0, y0), (x1, y1)] = box_int
+        cropped = image[y0:y1, x0:x1]
+        cropped = cv.resize(cropped)
+        cv.imshow("Cropped")
+        res = Col.get_color(cropped)
+        group = Col.get_ranged_groups(res, groups_color_filters)
+
+        return group
 
 
 beginning = time.time()
