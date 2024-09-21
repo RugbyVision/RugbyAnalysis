@@ -16,6 +16,8 @@ from threading import Thread, Event
 from imutils.video import FPS
 import time
 
+import matplotlib.pyplot as plt
+
 # import ColorChecking/Team Classification
 import ColorChecking as col
 
@@ -35,10 +37,13 @@ if stream.isOpened():
 
 stream.release()
 
-# ------------------------------------------------
-# here put the program to specify the 4 corners
-# use "firstFrame" variable for image
-# ------------------------------------------------
+padded_frame = cv.copyMakeBorder(firstFrame, 500, 500, 500, 500, cv.BORDER_CONSTANT, value=(0, 0, 0))
+virtualPitch = cv.imread("PlayerDetection/Res/Images/virtual_pitch.png")
+
+shown_frame_size = (1280, 720)
+original_frame_size = padded_frame.shape[:1]
+
+resized = cv.resize(padded_frame, shown_frame_size)
 
 device = ("cuda" if torch.cuda.is_available() else "cpu")
 print(f"using {device} device")
@@ -96,7 +101,7 @@ def ObjectDetectionAPI(img, Thr=0.3, RectTh=3, TxtSize=3, TxtTh=3):
                     "score": round(score.item(), 3),} """
 
 class FileVideoStream:
-    def __init__(self, path, queueSize=2048):
+    def __init__(self, path:str, queueSize=2048):
         self.path = path
         self.stream = cv.VideoCapture(path)
         self.halted = False
@@ -212,18 +217,24 @@ out = cv.VideoWriter(out_path, fourcc, 20.0, (1920, 1080))
 
 fps = FPS().start()
 
-i = 0
-while fvs.more() or not fvs.halted:
-    if fvs.more():
-        frame = fvs.read()
-        frame = cv.resize(frame, (1920, 1080), interpolation=cv.INTER_AREA)
-        out.write(frame)
-        print(i)
-        i += 1
-        fps.update()
-    else:
-        FullQueue.clear()
-        FullQueue.wait()
+
+with h5py.File(path.replace(".mp4", ".h5").replace("Videos", "Arrays"), 'r') as hf:
+    i = 0
+    while fvs.more() or not fvs.halted:
+        if fvs.more():
+            frame = fvs.read()
+            coordsArray = hf["Frame_" + str(i) + "_People"]
+            for coords in coordsArray:
+                cv.circle(frame, np.array(coords, dtype=int), 5, (0, 0, 255), 5)
+        
+            frame = cv.resize(frame, (1920, 1080), interpolation=cv.INTER_AREA)
+            out.write(frame)
+            print(i)
+            i += 1
+            fps.update()
+        else:
+            FullQueue.clear()
+            FullQueue.wait()
 
 
 fps.stop()
